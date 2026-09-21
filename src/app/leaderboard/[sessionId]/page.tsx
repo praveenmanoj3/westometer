@@ -65,7 +65,7 @@ export default function LeaderboardPage() {
         </Link>
         <div className="brand">
           <div className="brand__mark" />
-          <span className="brand__text">BKM</span>
+          <span className="brand__text">WESTOMETER</span>
         </div>
         {sessionCode && (
           <div className="session-code" style={{ fontSize: "1.3rem", padding: "0.25rem 0.75rem" }}>

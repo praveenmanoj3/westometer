@@ -300,7 +300,7 @@ function Sidebar({ active }: { active: string }) {
       {/* Brand */}
       <div className="brand">
         <div className="brand__mark" />
-        <span className="brand__text">BKM</span>
+        <span className="brand__text">WESTOMETER</span>
       </div>
 
       {/* Nav */}

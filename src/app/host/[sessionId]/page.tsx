@@ -399,7 +399,7 @@ export default function HostSessionPage() {
       <div style={{ minHeight: "100vh" }}>
         <header style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)", boxShadow: "0 3px 0 0 var(--color-shadow)" }}>
           <Link href="/" className="btn btn-secondary" style={{ padding: "0.55rem 0.9rem", minHeight: "unset" }}>← Dashboard</Link>
-          <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+          <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Wifi size={14} color="#16a34a" />
             <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#16a34a" }}>Supabase Live</span>
@@ -419,7 +419,7 @@ export default function HostSessionPage() {
     return (
       <div style={{ minHeight: "100vh" }}>
         <header style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)", boxShadow: "0 3px 0 0 var(--color-shadow)", flexWrap: "wrap" }}>
-          <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+          <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
           <div className="session-code" style={{ fontSize: "1.5rem", padding: "0.3rem 0.8rem" }}>{session.session_code}</div>
           <div style={{ marginLeft: "auto" }}>
             {currentSlideIdx + 1 < slides.length ? (
@@ -513,7 +513,7 @@ export default function HostSessionPage() {
           flexWrap: "wrap",
         }}
       >
-        <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+        <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
 
         <div className="phase-badge" style={{ background: phase === 'preview' ? "var(--color-brand-blue)" : phase === 'live' ? "var(--color-brand-yellow)" : "var(--color-brand-green)", color: phase === 'preview' ? "#fff" : "#000" }}>
           {isOpeningCountdown ? 'STARTING QUIZ' : phase === 'preview' ? 'QUESTION PREVIEW' : phase.toUpperCase()}

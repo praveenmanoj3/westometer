@@ -99,7 +99,7 @@ function JoinPageInner() {
       {/* Brand */}
       <div className="brand" style={{ marginBottom: "2rem" }}>
         <div className="brand__mark" />
-        <span className="brand__text">BKM</span>
+        <span className="brand__text">WESTOMETER</span>
       </div>
 
       {/* Card */}

@@ -110,15 +110,40 @@ export default function PlaySessionPage() {
   const currentSlide = slides[session?.current_slide_index || 0] || slides[0];
   const [nowMs, setNowMs] = useState(Date.now());
 
+  // Continuous timer ticker during preview and live answering phases
   useEffect(() => {
-    if (session?.status !== "preview") return;
-    const interval = setInterval(() => setNowMs(Date.now()), 250);
+    if (session?.status !== "preview" && session?.status !== "live") return;
+    setNowMs(Date.now());
+    const interval = setInterval(() => setNowMs(Date.now()), 200);
     return () => clearInterval(interval);
-  }, [session?.status]);
+  }, [session?.status, session?.phase_started_at]);
 
+  const previewDuration = currentSlide?.preview_time ?? 5;
+  const previewElapsed =
+    session?.status === "preview" && session?.phase_started_at
+      ? Math.max(0, (nowMs - new Date(session.phase_started_at).getTime()) / 1000)
+      : 0;
   const previewCountdown =
     session?.status === "preview" && currentSlide
-      ? Math.max(0, Math.ceil((currentSlide.preview_time ?? 5) - ((nowMs - new Date(session.phase_started_at).getTime()) / 1000)))
+      ? Math.max(0, Math.ceil(previewDuration - previewElapsed))
+      : 0;
+  const previewProgressPercent =
+    previewDuration > 0
+      ? Math.max(0, Math.min(100, (previewCountdown / previewDuration) * 100))
+      : 0;
+
+  const totalTimeLimit = currentSlide?.time_limit || 20;
+  const elapsedLiveSeconds =
+    session?.status === "live" && session?.phase_started_at
+      ? Math.max(0, (nowMs - new Date(session.phase_started_at).getTime()) / 1000)
+      : 0;
+  const liveTimeLeft =
+    session?.status === "live" && session?.phase_started_at
+      ? Math.max(0, Math.ceil(totalTimeLimit - elapsedLiveSeconds))
+      : totalTimeLimit;
+  const liveProgressPercent =
+    totalTimeLimit > 0
+      ? Math.max(0, Math.min(100, (liveTimeLeft / totalTimeLimit) * 100))
       : 0;
 
   useEffect(() => {
@@ -250,7 +275,7 @@ export default function PlaySessionPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)" }}>
-          <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+          <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
           <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{avatar} {nickname}</span>
         </header>
 
@@ -304,7 +329,7 @@ export default function PlaySessionPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)" }}>
-          <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+          <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
           <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{avatar} {nickname}</span>
         </header>
 
@@ -355,7 +380,7 @@ export default function PlaySessionPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)" }}>
-          <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+          <div className="brand"><div className="brand__mark" /><span className="brand__text">WESTOMETER</span></div>
           <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{avatar} {nickname}</span>
         </header>
 
@@ -406,12 +431,146 @@ export default function PlaySessionPage() {
   // 4. Live Question Screen
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.5rem", borderBottom: "var(--border-default)", background: "var(--color-surface)" }}>
-        <div className="brand"><div className="brand__mark" /><span className="brand__text">BKM</span></div>
+      {/* Top Header with Brand, Timer, and User info */}
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0.85rem 1.25rem",
+          borderBottom: "var(--border-default)",
+          background: "var(--color-surface)",
+          boxShadow: "0 2px 0 0 var(--color-shadow)",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          gap: "0.75rem",
+        }}
+      >
+        <div className="brand">
+          <div className="brand__mark" />
+          <span className="brand__text" style={{ fontSize: "1.4rem" }}>WESTOMETER</span>
+        </div>
+
+        {/* Real-time Timer Badge in top header */}
+        {session.status === "live" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              padding: "0.35rem 0.85rem",
+              border: "2px solid #000",
+              borderRadius: 8,
+              background: liveTimeLeft <= 5 ? "#ef4444" : liveTimeLeft <= 10 ? "var(--color-brand-yellow)" : "var(--color-brand-green)",
+              color: liveTimeLeft <= 5 ? "#ffffff" : "var(--color-text-strong)",
+              boxShadow: "var(--shadow-sm)",
+              fontWeight: 800,
+              fontSize: "0.95rem",
+              letterSpacing: "0.02em",
+              transition: "background 0.25s ease, color 0.25s ease",
+            }}
+          >
+            <Clock size={16} color={liveTimeLeft <= 5 ? "#ffffff" : "var(--color-text-strong)"} />
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", lineHeight: 1 }}>
+              {liveTimeLeft}s
+            </span>
+          </div>
+        )}
+
+        {session.status === "preview" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              padding: "0.35rem 0.85rem",
+              border: "2px solid #000",
+              borderRadius: 8,
+              background: "var(--color-brand-blue)",
+              color: "#ffffff",
+              boxShadow: "var(--shadow-sm)",
+              fontWeight: 800,
+              fontSize: "0.95rem",
+            }}
+          >
+            <Eye size={16} />
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", lineHeight: 1 }}>
+              {previewCountdown}s
+            </span>
+          </div>
+        )}
+
         <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{avatar} {nickname}</span>
       </header>
 
+      {/* Top Depleting Progress Bar */}
+      {(session.status === "live" || session.status === "preview") && (
+        <div style={{ width: "100%", height: 7, background: "rgba(0,0,0,0.12)", position: "relative", overflow: "hidden", borderBottom: "2px solid #000" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${session.status === "live" ? liveProgressPercent : previewProgressPercent}%`,
+              background: session.status === "live"
+                ? (liveTimeLeft <= 5 ? "#ef4444" : liveTimeLeft <= 10 ? "var(--color-brand-yellow)" : "var(--color-brand-green)")
+                : "var(--color-brand-blue)",
+              transition: "width 0.2s linear, background 0.3s ease",
+            }}
+          />
+        </div>
+      )}
+
       <main style={{ maxWidth: 600, margin: "0 auto", width: "100%", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.2rem", flex: 1 }}>
+        {/* Top Time Constraint Indicator Card */}
+        {session.status === "live" && (
+          <div
+            className="pin-card"
+            style={{
+              padding: "0.75rem 1.1rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: liveTimeLeft <= 5 ? "#fee2e2" : liveTimeLeft <= 10 ? "#fffbeb" : "var(--color-surface)",
+              borderColor: liveTimeLeft <= 5 ? "#ef4444" : "var(--color-border)",
+              boxShadow: "var(--shadow-sm)",
+              borderRadius: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <Clock size={20} color={liveTimeLeft <= 5 ? "#ef4444" : "var(--color-text-strong)"} />
+              <div>
+                <span style={{ fontWeight: 800, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: liveTimeLeft <= 5 ? "#b91c1c" : "var(--color-text-muted)", display: "block" }}>
+                  {liveTimeLeft === 0
+                    ? "Time is up!"
+                    : liveTimeLeft <= 5
+                    ? "⚡ Final Seconds!"
+                    : isSubmitted
+                    ? "Answer Locked In"
+                    : "Time Remaining"}
+                </span>
+                <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--color-text)" }}>
+                  {liveTimeLeft === 0
+                    ? "Waiting for host to reveal results…"
+                    : isSubmitted
+                    ? "Recorded! Waiting for round end"
+                    : "Answer quickly for speed bonus!"}
+                </span>
+              </div>
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "1.8rem",
+                fontWeight: 900,
+                lineHeight: 1,
+                color: liveTimeLeft <= 5 ? "#ef4444" : "var(--color-text-strong)",
+              }}
+            >
+              {liveTimeLeft}s
+            </div>
+          </div>
+        )}
+
         {/* Question text */}
         <div className="pin-card" style={{ padding: "1.5rem", textAlign: "center" }}>
           <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--color-text-muted)" }}>
