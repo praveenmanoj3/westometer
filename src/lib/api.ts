@@ -153,6 +153,251 @@ export async function createPresentation(title: string, description: string = ''
   return data.id;
 }
 
+export async function createLoadTestPresentation(): Promise<string | null> {
+  const title = 'QA 200 Player Load Test';
+  const description = 'One-time stress test presentation with five MCQ slides for 200 simulated players.';
+
+  const { data: existing } = await supabase
+    .from('presentations')
+    .select('id')
+    .eq('title', title)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const { data, error } = await supabase
+    .from('presentations')
+    .insert([{ title, description, theme: 'parchment' }])
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('Error creating QA load test presentation:', error);
+    return null;
+  }
+
+  const testSlides: Slide[] = [
+    {
+      id: '',
+      presentation_id: data.id,
+      order_index: 0,
+      type: 'mcq',
+      question: 'Which city hosted the 2016 UEFA European Championship final?',
+      description: 'Choose the hosting city.',
+      media_url: '',
+      media_type: 'none',
+      time_limit: 20,
+      preview_time: 5,
+      points_multiplier: 1,
+      options: [
+        { id: '', slide_id: '', order_index: 0, text: 'Paris', is_correct: false },
+        { id: '', slide_id: '', order_index: 1, text: 'Saint-Denis', is_correct: true },
+        { id: '', slide_id: '', order_index: 2, text: 'Madrid', is_correct: false },
+        { id: '', slide_id: '', order_index: 3, text: 'Milan', is_correct: false },
+      ],
+    },
+    {
+      id: '',
+      presentation_id: data.id,
+      order_index: 1,
+      type: 'mcq',
+      question: 'Which country won the 2018 FIFA World Cup?',
+      description: 'Pick the champion.',
+      media_url: '',
+      media_type: 'none',
+      time_limit: 20,
+      preview_time: 5,
+      points_multiplier: 1,
+      options: [
+        { id: '', slide_id: '', order_index: 0, text: 'Germany', is_correct: false },
+        { id: '', slide_id: '', order_index: 1, text: 'France', is_correct: true },
+        { id: '', slide_id: '', order_index: 2, text: 'Brazil', is_correct: false },
+        { id: '', slide_id: '', order_index: 3, text: 'Argentina', is_correct: false },
+      ],
+    },
+    {
+      id: '',
+      presentation_id: data.id,
+      order_index: 2,
+      type: 'mcq',
+      question: 'Which footballer scored the winning goal in the 2014 World Cup final?',
+      description: 'Think about the final in Rio.',
+      media_url: '',
+      media_type: 'none',
+      time_limit: 20,
+      preview_time: 5,
+      points_multiplier: 1,
+      options: [
+        { id: '', slide_id: '', order_index: 0, text: 'Mario Götze', is_correct: true },
+        { id: '', slide_id: '', order_index: 1, text: 'Thomas Müller', is_correct: false },
+        { id: '', slide_id: '', order_index: 2, text: 'Neymar', is_correct: false },
+        { id: '', slide_id: '', order_index: 3, text: 'Robin van Persie', is_correct: false },
+      ],
+    },
+    {
+      id: '',
+      presentation_id: data.id,
+      order_index: 3,
+      type: 'mcq',
+      question: 'Which club has won the most UEFA Champions League titles?',
+      description: 'Classic European competition question.',
+      media_url: '',
+      media_type: 'none',
+      time_limit: 20,
+      preview_time: 5,
+      points_multiplier: 1,
+      options: [
+        { id: '', slide_id: '', order_index: 0, text: 'AC Milan', is_correct: false },
+        { id: '', slide_id: '', order_index: 1, text: 'Real Madrid', is_correct: true },
+        { id: '', slide_id: '', order_index: 2, text: 'Liverpool', is_correct: false },
+        { id: '', slide_id: '', order_index: 3, text: 'Bayern Munich', is_correct: false },
+      ],
+    },
+    {
+      id: '',
+      presentation_id: data.id,
+      order_index: 4,
+      type: 'mcq',
+      question: 'How many players are on the pitch for one team in a standard football match at kickoff?',
+      description: 'Include the goalkeeper.',
+      media_url: '',
+      media_type: 'none',
+      time_limit: 20,
+      preview_time: 5,
+      points_multiplier: 1,
+      options: [
+        { id: '', slide_id: '', order_index: 0, text: '9', is_correct: false },
+        { id: '', slide_id: '', order_index: 1, text: '10', is_correct: false },
+        { id: '', slide_id: '', order_index: 2, text: '11', is_correct: true },
+        { id: '', slide_id: '', order_index: 3, text: '12', is_correct: false },
+      ],
+    },
+  ];
+
+  await savePresentationSlides(data.id, testSlides);
+  return data.id;
+}
+
+export async function simulateSessionParticipants(sessionId: string, participantCount = 200): Promise<{ participantCount: number; responseCount: number }> {
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .select('id, presentation_id, current_slide_index, phase_started_at, status')
+    .eq('id', sessionId)
+    .single();
+
+  if (sessionError || !session) {
+    throw new Error('Session not found for simulation');
+  }
+
+  const { data: slides, error: slidesError } = await supabase
+    .from('slides')
+    .select('*, slide_options(*)')
+    .eq('presentation_id', session.presentation_id)
+    .order('order_index', { ascending: true });
+
+  if (slidesError || !slides || slides.length === 0) {
+    throw new Error('No slides found for simulation');
+  }
+
+  const totalParticipants = Math.min(Math.max(1, participantCount), 200);
+  const earlyCorrectShare = Math.max(1, Math.round(totalParticipants * 0.2));
+  const lateCorrectShare = Math.max(1, Math.round(totalParticipants * 0.4));
+  const wrongShare = totalParticipants - earlyCorrectShare - lateCorrectShare;
+
+  const { error: clearResponseError } = await supabase
+    .from('responses')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (clearResponseError) {
+    console.warn('Could not clear prior responses before simulation:', clearResponseError);
+  }
+
+  const { error: clearParticipantError } = await supabase
+    .from('participants')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (clearParticipantError) {
+    console.warn('Could not clear prior participants before simulation:', clearParticipantError);
+  }
+
+  const generatedParticipants: any[] = [];
+  for (let i = 0; i < totalParticipants; i += 1) {
+    generatedParticipants.push({
+      session_id: sessionId,
+      nickname: `QA_${String(i + 1).padStart(3, '0')}`,
+      avatar: ['🐝', '🔥', '⚡', '🎯', '🏆', '🚀', '👑', '🦤'][i % 8],
+      score: 0,
+    });
+  }
+
+  const { data: insertedParticipants, error: participantError } = await supabase
+    .from('participants')
+    .insert(generatedParticipants)
+    .select();
+
+  if (participantError) {
+    throw new Error(`Failed to create simulated participants: ${participantError.message}`);
+  }
+
+  let responseCount = 0;
+
+  for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
+    const slide = slides[slideIndex];
+    const options = (slide.slide_options || []).sort((a: any, b: any) => a.order_index - b.order_index);
+    const correctOption = options.find((opt: any) => opt.is_correct) || options[0];
+    const wrongOptions = options.filter((opt: any) => !opt.is_correct);
+    const totalLimitMs = (slide.time_limit || 20) * 1000;
+
+    for (let pIndex = 0; pIndex < (insertedParticipants || []).length; pIndex += 1) {
+      const participant = (insertedParticipants || [])[pIndex];
+      let selectedOptionId = correctOption.id;
+      let isCorrect = true;
+      let responseTimeMs = 600 + Math.random() * 3000;
+
+      if (pIndex < earlyCorrectShare) {
+        selectedOptionId = correctOption.id;
+        isCorrect = true;
+        responseTimeMs = 450 + Math.random() * 4000;
+      } else if (pIndex < earlyCorrectShare + lateCorrectShare) {
+        selectedOptionId = correctOption.id;
+        isCorrect = true;
+        responseTimeMs = 12000 + Math.random() * 7000;
+      } else {
+        const wrongOption = wrongOptions[Math.floor(Math.random() * wrongOptions.length)] || options[0];
+        selectedOptionId = wrongOption.id;
+        isCorrect = false;
+        responseTimeMs = 5000 + Math.random() * 9000;
+      }
+
+      responseTimeMs = Math.max(300, Math.min(totalLimitMs, responseTimeMs));
+      const speedRatio = Math.max(0, 1 - responseTimeMs / totalLimitMs);
+      const pointsAwarded = isCorrect ? Math.round(1000 + speedRatio * 500) : 0;
+
+      const ok = await submitParticipantResponse(
+        sessionId,
+        slide.id,
+        participant.id,
+        selectedOptionId,
+        isCorrect,
+        responseTimeMs,
+        pointsAwarded
+      );
+
+      if (ok) responseCount += 1;
+    }
+  }
+
+  return {
+    participantCount: insertedParticipants?.length || 0,
+    responseCount,
+  };
+}
+
 export async function updatePresentationDetails(id: string, updates: { title?: string; description?: string }) {
   const { error } = await supabase
     .from('presentations')
