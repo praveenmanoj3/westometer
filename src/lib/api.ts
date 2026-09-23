@@ -299,17 +299,33 @@ export async function simulateSessionParticipants(sessionId: string, participant
     .order('order_index', { ascending: true });
 
   if (slidesError || !slides || slides.length === 0) {
-    throw new Error('No slides found for business simulation');
+    throw new Error('No slides found for simulation');
   }
 
-  const currentSlide = slides[session.current_slide_index ?? 0] || slides[0];
-  const currentOptions = (currentSlide.slide_options || []).sort((a: any, b: any) => a.order_index - b.order_index);
-  const correctOption = currentOptions.find((opt: any) => opt.is_correct) || currentOptions[0];
-
   const totalParticipants = Math.min(Math.max(1, participantCount), 200);
-  const sameAnswerShare = Math.ceil(totalParticipants * 0.2);
-  const generatedParticipants: any[] = [];
+  const earlyCorrectShare = Math.max(1, Math.round(totalParticipants * 0.2));
+  const lateCorrectShare = Math.max(1, Math.round(totalParticipants * 0.4));
+  const wrongShare = totalParticipants - earlyCorrectShare - lateCorrectShare;
 
+  const { error: clearResponseError } = await supabase
+    .from('responses')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (clearResponseError) {
+    console.warn('Could not clear prior responses before simulation:', clearResponseError);
+  }
+
+  const { error: clearParticipantError } = await supabase
+    .from('participants')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (clearParticipantError) {
+    console.warn('Could not clear prior participants before simulation:', clearParticipantError);
+  }
+
+  const generatedParticipants: any[] = [];
   for (let i = 0; i < totalParticipants; i += 1) {
     generatedParticipants.push({
       session_id: sessionId,
@@ -329,38 +345,57 @@ export async function simulateSessionParticipants(sessionId: string, participant
   }
 
   let responseCount = 0;
-  for (let i = 0; i < (insertedParticipants || []).length; i += 1) {
-    const participant = (insertedParticipants || [])[i];
-    let selectedOptionId = currentOptions[Math.floor(Math.random() * currentOptions.length)]?.id ?? correctOption.id;
 
-    if (i < sameAnswerShare) {
-      selectedOptionId = correctOption.id;
+  for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
+    const slide = slides[slideIndex];
+    const options = (slide.slide_options || []).sort((a: any, b: any) => a.order_index - b.order_index);
+    const correctOption = options.find((opt: any) => opt.is_correct) || options[0];
+    const wrongOptions = options.filter((opt: any) => !opt.is_correct);
+    const totalLimitMs = (slide.time_limit || 20) * 1000;
+
+    for (let pIndex = 0; pIndex < (insertedParticipants || []).length; pIndex += 1) {
+      const participant = (insertedParticipants || [])[pIndex];
+      let selectedOptionId = correctOption.id;
+      let isCorrect = true;
+      let responseTimeMs = 600 + Math.random() * 3000;
+
+      if (pIndex < earlyCorrectShare) {
+        selectedOptionId = correctOption.id;
+        isCorrect = true;
+        responseTimeMs = 450 + Math.random() * 4000;
+      } else if (pIndex < earlyCorrectShare + lateCorrectShare) {
+        selectedOptionId = correctOption.id;
+        isCorrect = true;
+        responseTimeMs = 12000 + Math.random() * 7000;
+      } else {
+        const wrongOption = wrongOptions[Math.floor(Math.random() * wrongOptions.length)] || options[0];
+        selectedOptionId = wrongOption.id;
+        isCorrect = false;
+        responseTimeMs = 5000 + Math.random() * 9000;
+      }
+
+      responseTimeMs = Math.max(300, Math.min(totalLimitMs, responseTimeMs));
+      const speedRatio = Math.max(0, 1 - responseTimeMs / totalLimitMs);
+      const pointsAwarded = isCorrect ? Math.round(1000 + speedRatio * 500) : 0;
+
+      const ok = await submitParticipantResponse(
+        sessionId,
+        slide.id,
+        participant.id,
+        selectedOptionId,
+        isCorrect,
+        responseTimeMs,
+        pointsAwarded
+      );
+
+      if (ok) responseCount += 1;
     }
-
-    if (i >= sameAnswerShare && Math.random() < 0.22) {
-      selectedOptionId = correctOption.id;
-    }
-
-    const isCorrect = selectedOptionId === correctOption.id;
-    const totalLimitMs = (currentSlide.time_limit || 20) * 1000;
-    const responseTimeMs = Math.max(400, Math.min(totalLimitMs, Math.round(200 + (Math.random() * totalLimitMs * 0.9))));
-    const speedRatio = Math.max(0, 1 - responseTimeMs / totalLimitMs);
-    const pointsAwarded = isCorrect ? Math.round(1000 + speedRatio * 500) : 0;
-
-    const ok = await submitParticipantResponse(
-      sessionId,
-      currentSlide.id,
-      participant.id,
-      selectedOptionId,
-      isCorrect,
-      responseTimeMs,
-      pointsAwarded
-    );
-
-    if (ok) responseCount += 1;
   }
 
-  return { participantCount: insertedParticipants?.length || 0, responseCount };
+  return {
+    participantCount: insertedParticipants?.length || 0,
+    responseCount,
+  };
 }
 
 export async function updatePresentationDetails(id: string, updates: { title?: string; description?: string }) {
