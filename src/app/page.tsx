@@ -22,6 +22,7 @@ import {
 import {
   getPresentations,
   createPresentation,
+  createLoadTestPresentation,
   deletePresentation,
   createSession,
   seedSampleQuizIfEmpty,
@@ -532,6 +533,13 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleCreateLoadTestPresentation() {
+    const newId = await createLoadTestPresentation();
+    if (newId) {
+      router.push(`/editor/${newId}`);
+    }
+  }
+
   async function handleStart(id: string) {
     setStartingId(id);
     const session = await createSession(id);
@@ -622,7 +630,7 @@ export default function DashboardPage() {
             </h1>
           </div>
 
-          <div style={{ display: "flex", gap: "0.8rem", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.8rem", alignItems: "center", flexWrap: "wrap" }}>
             <Link href="/join" className="btn btn-secondary">
               <Zap size={15} />
               Join as Player
@@ -630,6 +638,10 @@ export default function DashboardPage() {
             <button onClick={handleCreate} disabled={creating} className="btn btn-primary">
               {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
               New Presentation
+            </button>
+            <button onClick={handleCreateLoadTestPresentation} className="btn btn-secondary">
+              <Zap size={15} />
+              Create 200-User QA Test
             </button>
           </div>
         </div>

@@ -25,6 +25,7 @@ import {
   updateSessionState,
   getSlideResponses,
   getSessionParticipants,
+  simulateSessionParticipants,
 } from "@/lib/api";
 import { Session, Slide, Participant, ResponseRecord } from "@/lib/types";
 
@@ -52,10 +53,16 @@ function WaitingRoom({
   sessionCode,
   participants,
   onStart,
+  onSimulate,
+  showSimulationButton,
+  simulating,
 }: {
   sessionCode: string;
   participants: Participant[];
   onStart: () => void;
+  onSimulate?: () => void;
+  showSimulationButton?: boolean;
+  simulating?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const joinUrl = typeof window !== "undefined"
@@ -137,6 +144,12 @@ function WaitingRoom({
 
       {/* Action Buttons */}
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+        {showSimulationButton && onSimulate && (
+          <button className="btn btn-secondary" style={{ fontSize: "1rem", padding: "1rem 1.5rem" }} onClick={onSimulate} disabled={simulating}>
+            {simulating ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+            {simulating ? "Simulating 200 users..." : "Simulate 200 Users"}
+          </button>
+        )}
         <button className="btn btn-green" style={{ fontSize: "1.1rem", padding: "1.1rem 2.5rem" }} onClick={onStart}>
           <Zap size={18} />
           Start Presentation ({participants.length} Ready)
@@ -160,6 +173,8 @@ export default function HostSessionPage() {
   const [phase, setPhase] = useState<'lobby' | 'preview' | 'live' | 'reveal' | 'leaderboard' | 'ended'>('lobby');
   const [timeLeft, setTimeLeft] = useState(0);
   const [previewTimeLeft, setPreviewTimeLeft] = useState(0);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const isLoadTestSession = (session?.presentation?.title || '').toLowerCase().includes('200 player load test');
 
   // Load initial session
   useEffect(() => {
@@ -306,6 +321,22 @@ export default function HostSessionPage() {
     await startSlidePhase(0);
   };
 
+  const handleSimulate200Users = async () => {
+    if (!sessionId || !isLoadTestSession) return;
+    setIsSimulating(true);
+    try {
+      const result = await simulateSessionParticipants(sessionId, 200);
+      const refreshedParticipants = await getSessionParticipants(sessionId);
+      setParticipants(refreshedParticipants);
+      console.log('Simulation generated:', result);
+    } catch (error) {
+      console.error('Simulation failed:', error);
+      alert('Failed to simulate 200 players. Please check the session and database connection.');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
   const handleRevealAnswer = async () => {
     setPhase('reveal');
     await updateSessionState(sessionId, {
@@ -409,6 +440,9 @@ export default function HostSessionPage() {
           sessionCode={session.session_code}
           participants={participants}
           onStart={handleStartSession}
+          onSimulate={handleSimulate200Users}
+          showSimulationButton={isLoadTestSession}
+          simulating={isSimulating}
         />
       </div>
     );
